@@ -233,13 +233,13 @@ class Maze:
                     rewards[s,a] = reward_sum;
         return rewards;
     
-    def simulate(self, start_position, policy, method):
+    def simulate(self, start_position, minature_pos, policy, method):
         if method not in methods:
             error = 'ERROR: the argument method must be in {}'.format(methods);
             raise NameError(error);
         
         # Create a starting state
-        start = (start_position, self.start_minautar);
+        start = (start_position, minature_pos);
         
         path = list();
         if method == 'DynProg':
@@ -259,29 +259,7 @@ class Maze:
                 # Update time and state for next iteration
                 t += 1;
                 s = next_s;
-        if method == 'ValIter':
-            # Initialize current state, next state and time
-            t = 1;
-            s = self.map[start];
-            # Add the starting position in the maze to the path
-            path.append(start);
-            # Move to next state given the policy and the current state
-            next_s = self.__move(s,policy[s]);
-            # Add the position in the maze corresponding to the next state
-            # to the path
-            path.append(self.states[next_s]);
-            # Loop while state is not the goal state
-            while s != next_s:
-                # Update state
-                s = next_s;
-                # Move to next state given the policy and the current state
-                next_s = self.__move_no_minauta((s,policy[s]);
-                # Add the position in the maze corresponding to the next state
-                # to the path
-                path.append(self.states[next_s])
-                # Update time and state for next iteration
-                t +=1;
-        return path
+        return path;
 
     def __get_start_minautar(self):
         """Look for the starting position of the minautar by looking at the map
@@ -300,24 +278,69 @@ class Maze:
             return (coordinates[0], coordinates[1]);
 
     def __move_no_minautar(self, state, action):
-        """ Makes a step in the maze, given a current position and an action.
-            If the action STAY or an inadmissible action is used, the agent stays in place.
+        """ Make a step in the maze without the minotaur"""
+        # Get the tuples of the current state
+        current_cell = self.states[state];
 
-            :return tuple next_cell: Position (x,y) on the maze that agent transitions to.
-        """
         # Compute the future position given current (state, action)
-        row = self.states[state][0] + self.actions_player[action][0];
-        col = self.states[state][1] + self.actions_player[action][1];
+        row = current_cell[0][0] + self.actions_player[action][0];
+        col = current_cell[0][1] + self.actions_player[action][1];
+
         # Is the future position an impossible one ?
         hitting_maze_walls =  (row == -1) or (row == self.maze.shape[0]) or \
                               (col == -1) or (col == self.maze.shape[1]) or \
                               (self.maze[row,col] == 1);
-        # Based on the impossiblity check return the next state.
-        if hitting_maze_walls:
-            return state;
+        
+        # Update the state
+        if not hitting_maze_walls:
+            return self.map[((row, col), current_cell[1])];
         else:
-            return self.map[(row, col)];
- 
+            return state;
+
+def print_maze_directions(directions):
+    # Print the directions array using arrows
+    for x in range(directions.shape[0]):
+        for y in range(directions.shape[1]):
+            print(" %s" % directions[x,y], end="")
+        print();
+    print();
+
+def draw_actions_position_minautar(env, policy, maze, minotaur_pos, t):
+    # For each cell in the maze state that is not a wall, draw an arrow
+    # corresponding to the action that would be taken when moving to that cell.
+
+    # A variable containing the directions
+    directions = np.zeros((maze.shape[0], maze.shape[1]), dtype=str);
+
+    # For each cell in the maze
+    for x in range(maze.shape[0]):
+        for y in range(maze.shape[1]):
+            # If the cell is not a wall
+            if maze[x,y] != 1:
+                # Get the index of this state
+                state = env.map[((x,y), minotaur_pos)];
+                # Get the action taken in this cell
+                action = policy[state, t];
+                # Depending on the action assign a direction
+                if action == 0:
+                    directions[x,y] = "s";
+                elif action == 1:
+                    directions[x,y] = "<";
+                elif action == 2:
+                    directions[x,y] = ">";
+                elif action == 3:
+                    directions[x,y] = "^";
+                elif action == 4:
+                    directions[x,y] = "v";
+            else:
+                directions[x,y] = "X";
+    
+    # Print an O  at the position of the minotaur
+    directions[minotaur_pos[0], minotaur_pos[1]] = "O";
+
+    # Print this array using a plot function
+    print_maze_directions(directions);
+
 def dynamic_programming(env, horizon):
     """ Solves the shortest path problem using dynamic programming
         :param Maze env: The environment to solve
@@ -355,11 +378,12 @@ def dynamic_programming(env, horizon):
         for s in range(n_states):
             for a in range(n_actions):
                 # Update of the temporary Q values
-                Q[s,a] = r[s,a] + np.dot(p[:,s,a],V[:,t+1])
+                Q[s, a] = r[s, a] + np.dot(p[:, s, a],V[:, t+1])
         # Update by taking the maximum Q value w.r.t the action a
-        V[:,t] = np.max(Q,1);
+        V[:, t] = np.max(Q, 1);
         # The optimal action is the one that maximizes the Q function
-        policy[:,t] = np.argmax(Q,1);
+        policy[:, t] = np.argmax(Q, 1);
+        print(policy[:, t])
     return V, policy;
 
 def draw_maze(maze):
@@ -399,7 +423,7 @@ def draw_maze(maze):
         cell.set_height(1.0/rows);
         cell.set_width(1.0/cols);
 
-def animate_solution(maze, path):
+def animate_solution(maze, path, min_pos):
 
     # Map a color to each cell in the maze
     col_map = {0: WHITE, 1: BLACK, 2: LIGHT_GREEN, -6: LIGHT_RED, -1: LIGHT_RED};
@@ -418,6 +442,9 @@ def animate_solution(maze, path):
 
     # Give a color to each cell
     colored_maze = [[col_map[maze[j,i]] for i in range(cols)] for j in range(rows)];
+
+    # Color the minotaur cell red
+    colored_maze[min_pos[0]][min_pos[1]] = LIGHT_RED;
 
     # Create figure of the size of the maze
     fig = plt.figure(1, figsize=(cols,rows))
@@ -438,37 +465,37 @@ def animate_solution(maze, path):
 
     # Update the color at each frame
     for i in range(len(path)):
-        grid.get_celld()[(path[i])].set_facecolor(LIGHT_ORANGE)
-        grid.get_celld()[(path[i])].get_text().set_text('Player')
+        grid.get_celld()[(path[i][0])].set_facecolor(LIGHT_ORANGE)
+        grid.get_celld()[(path[i][0])].get_text().set_text('Player')
         if i > 0:
-            if path[i] == path[i-1]:
-                grid.get_celld()[(path[i])].set_facecolor(LIGHT_GREEN)
-                grid.get_celld()[(path[i])].get_text().set_text('Player is out')
+            if path[i][0] == path[i-1]:
+                grid.get_celld()[(path[i][0])].set_facecolor(LIGHT_GREEN)
+                grid.get_celld()[(path[i][0])].get_text().set_text('Player is out')
             else:
-                grid.get_celld()[(path[i-1])].set_facecolor(col_map[maze[path[i-1]]])
-                grid.get_celld()[(path[i-1])].get_text().set_text('')
+                grid.get_celld()[(path[i-1][0])].set_facecolor(col_map[maze[path[i-1][0]]])
+                grid.get_celld()[(path[i-1][0])].get_text().set_text('')
         display.display(fig)
         display.clear_output(wait=True)
         time.sleep(1)
 
 
-maze = np.array([
-    [0, 0, 1, 0, 0, 0, 0],
-    [0, 0, 1, 0, 0, 0, 0],
-    [0, 0, 1, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0],
-    [0, 1, 1, 1, 1, 1, 0],
-    [0, 0, 0, 0, 0, 2, 0]
-])
+# maze = np.array([
+#     [0, 0, 1, 0, 0, 0, 0],
+#     [0, 0, 1, 0, 0, 0, 0],
+#     [0, 0, 1, 0, 0, 0, 0],
+#     [0, 0, 0, 0, 0, 0, 0],
+#     [1, 1, 1, 1, 1, 1, 0],
+#     [0, 0, 0, 0, 0, 2, 0]
+# ])
 
-env = Maze(maze)
+# env = Maze(maze)
+# draw_maze(maze);
+# # Finite horizon
+# horizon = 10
+# # Solve the MDP problem with dynamic programming 
+# V, policy=  dynamic_programming(env,horizon);
 
-# Finite horizon
-horizon = 10
-# Solve the MDP problem with dynamic programming 
-V, policy=  dynamic_programming(env,horizon);
-
-# Simulate the shortest path starting from position A
-method = 'DynProg';
-start  = (0,0);
-path = env.simulate(start, policy, method); 
+# # # Simulate the shortest path starting from position A
+# # method = 'DynProg';
+# # start  = (0,0);
+# # path = env.simulate(start, policy, method); 

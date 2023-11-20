@@ -1,0 +1,8 @@
+                
+                # for each possible move of the minotaur, compute the next state
+                for minotaur_move in possibilities:
+                    # Compute the next state given the current state and action (and minotaur move)
+                    next_s = self.__move(s, a, minotaur_move);
+                    
+                    # Update the transition probabilities
+                    transition_probabilities[next_s, s, a] = 1 / len(possibilities);

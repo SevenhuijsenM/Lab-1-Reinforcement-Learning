@@ -305,50 +305,6 @@ class Maze:
         else:
             return state;
 
-def print_maze_directions(directions):
-    # Print the directions array using arrows
-    for x in range(directions.shape[0]):
-        for y in range(directions.shape[1]):
-            print(" %s" % directions[x,y], end="")
-        print();
-    print();
-
-def draw_actions_position_minautar(env, policy, maze, minotaur_pos, t):
-    # For each cell in the maze state that is not a wall, draw an arrow
-    # corresponding to the action that would be taken when moving to that cell.
-
-    # A variable containing the directions
-    directions = np.zeros((maze.shape[0], maze.shape[1]), dtype=str);
-
-    # For each cell in the maze
-    for x in range(maze.shape[0]):
-        for y in range(maze.shape[1]):
-            # If the cell is not a wall
-            if maze[x,y] != 1:
-                # Get the index of this state
-                state = env.map[((x,y), minotaur_pos)];
-                # Get the action taken in this cell
-                action = policy[state, t];
-                # Depending on the action assign a direction
-                if action == 0:
-                    directions[x,y] = "s";
-                elif action == 1:
-                    directions[x,y] = "<";
-                elif action == 2:
-                    directions[x,y] = ">";
-                elif action == 3:
-                    directions[x,y] = "^";
-                elif action == 4:
-                    directions[x,y] = "v";
-            else:
-                directions[x,y] = "X";
-    
-    # Print an O  at the position of the minotaur
-    directions[minotaur_pos[0], minotaur_pos[1]] = "O";
-
-    # Print this array using a plot function
-    print_maze_directions(directions);
-
 def dynamic_programming(env, horizon):
     """ Solves the shortest path problem using dynamic programming
         :param Maze env: The environment to solve
@@ -415,16 +371,8 @@ def dynamic_programming(env, horizon):
     return V, policy;
 
 def draw_maze(maze):
-
     # Map a color to each cell in the maze
     col_map = {0: WHITE, 1: BLACK, 2: LIGHT_GREEN, -6: LIGHT_RED, -1: LIGHT_RED};
-
-    # Give a color to each cell
-    rows,cols    = maze.shape;
-    colored_maze = [[col_map[maze[j,i]] for i in range(cols)] for j in range(rows)];
-
-    # Create figure of the size of the maze
-    fig = plt.figure(1, figsize=(cols,rows));
 
     # Remove the axis ticks and add title title
     ax = plt.gca();
@@ -435,9 +383,6 @@ def draw_maze(maze):
     # Give a color to each cell
     rows,cols    = maze.shape;
     colored_maze = [[col_map[maze[j,i]] for i in range(cols)] for j in range(rows)];
-
-    # Create figure of the size of the maze
-    fig = plt.figure(1, figsize=(cols,rows))
 
     # Create a table to color
     grid = plt.table(cellText=None,
@@ -502,18 +447,3 @@ def animate_solution(maze, path, min_pos):
         display.display(fig)
         display.clear_output(wait=True)
         time.sleep(1)
-
-
-maze = np.array([
-    [0, 0, 0],
-    [0, 1, 0],
-    [0, 0, 2]
-])
-
-env = Maze(maze)
-
-dynamic_programming(env, 10)
-
-# # Try to simulate a move
-# print(env.states[Maze._Maze__move(env, env.map[((0, 0), (1, 1))], env.MOVE_RIGHT, env.MOVE_RIGHT_MINOTAUR)])
- 

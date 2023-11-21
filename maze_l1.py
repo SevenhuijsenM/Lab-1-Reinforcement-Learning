@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 from IPython import display
+import pandas as pd
 
 # All the methods that are currently implemented in the class Maze
 methods = ['DynProg'];
@@ -37,11 +38,19 @@ class Maze:
         MOVE_UP: "move up",
         MOVE_DOWN: "move down"
     }
+    
+    # Give names to actions of the minotaur
+    actions_names_minotaur = {
+        MOVE_LEFT_MINOTAUR: "move left",
+        MOVE_RIGHT_MINOTAUR: "move right",
+        MOVE_UP_MINOTAUR: "move up",
+        MOVE_DOWN_MINOTAUR: "move down"
+    }
 
     # Reward values
     STEP_REWARD = -1
     GOAL_REWARD = 0
-    IMPOSSIBLE_REWARD = -100
+    IMPOSSIBLE_REWARD = -1000
     CAUGHT_MINOTAUR = -100
 
     # Initialise the maze environment
@@ -61,16 +70,16 @@ class Maze:
     def __actions(self):
         actions_player = dict();
         actions_player[self.STAY]       = (0, 0);
-        actions_player[self.MOVE_LEFT]  = (0,-1);
+        actions_player[self.MOVE_LEFT]  = (0, -1);
         actions_player[self.MOVE_RIGHT] = (0, 1);
-        actions_player[self.MOVE_UP]    = (-1,0);
-        actions_player[self.MOVE_DOWN]  = (1,0);
+        actions_player[self.MOVE_UP]    = (-1, 0);
+        actions_player[self.MOVE_DOWN]  = (1, 0);
         
         actions_minotaur = dict();
-        actions_minotaur[self.MOVE_LEFT_MINOTAUR]  = (0,-1);
+        actions_minotaur[self.MOVE_LEFT_MINOTAUR]  = (0, -1);
         actions_minotaur[self.MOVE_RIGHT_MINOTAUR] = (0, 1);
-        actions_minotaur[self.MOVE_UP_MINOTAUR]    = (-1,0);
-        actions_minotaur[self.MOVE_DOWN_MINOTAUR]  = (1,0);       
+        actions_minotaur[self.MOVE_UP_MINOTAUR]    = (-1, 0);
+        actions_minotaur[self.MOVE_DOWN_MINOTAUR]  = (1, 0);       
         
         return actions_player, actions_minotaur;
 
@@ -88,6 +97,7 @@ class Maze:
                             states[s] = ((i, j), (k, l));
                             map[((i, j), (k, l))] = s;
                             s += 1;
+                            
         return states, map
     
     def __get_minotaur_move_possibilities(self, minotaur_state):
@@ -186,51 +196,49 @@ class Maze:
                 for a_m in range(self.n_actions_minotaur):
                     if self.minotaur_probabilities[s, a, a_m] > 0:
                         # Compute the next state given the current state and action
-                        next_s = self.__move(s,a,a_m);
+                        next_s = self.__move(s, a, a_m);
                         
                         # The transition probability is the probability of the minotaur moving
-                        transition_probabilities[s, next_s, a] = self.minotaur_probabilities[s, a, a_m];
-
+                        #print(f"State: {self.states[s]}, action: {self.actions_names[a]}, minotaur action: {self.actions_names_minotaur[a_m]}, next state: {self.states[next_s]} with probability {self.minotaur_probabilities[s, a, a_m]}")
+                        transition_probabilities[next_s, s, a] = self.minotaur_probabilities[s, a, a_m];
+        #print(transition_probabilities)
         return transition_probabilities;
     
     def __rewards(self, weights=None, random_rewards=None):
         rewards = np.zeros((self.n_states, self.n_actions));
-
-        # If the rewards are not described by a weight matrix
-        if weights is None:
-            # For each state and action the reward is computed
-            for s in range(self.n_states):
-                for a in range(self.n_actions):
-                    # Sum for the reward using a weighted average
-                    reward_sum = 0;
-                    
-                    for a_m in self.actions_minotaur:
-                        if self.minotaur_probabilities[s, a, a_m] > 0:
-                            # Get the probability of this transaction
-                            probability = self.minotaur_probabilities[s, a, a_m];
+        # For each state and action the reward is computed
+        for s in range(self.n_states):
+            for a in range(self.n_actions):
+                # Sum for the reward using a weighted average
+                reward_sum = 0;
+                
+                for a_m in self.actions_minotaur:
+                    if self.minotaur_probabilities[s, a, a_m] > 0:
+                        # Get the probability of this transaction
+                        probability = self.minotaur_probabilities[s, a, a_m];
+                        
+                        # Next state
+                        current_s = self.states[s];
+                        next_s = self.states[self.__move(s, a, a_m)]
+                        
+                        # If the minotaur catches the player
+                        if next_s[0] == next_s[1]:
+                            reward_sum += probability * self.CAUGHT_MINOTAUR;
                             
-                            # Next state
-                            current_s = self.states[s];
-                            next_s = self.states[self.__move(s, a, a_m)]
+                        # If the player hits a wall
+                        elif next_s[0] == current_s[0] and a != self.STAY:
+                            reward_sum += probability * self.IMPOSSIBLE_REWARD;
                             
-                            # If the minotaur catches the player
-                            if next_s[0] == next_s[1]:
-                                reward_sum += probability * self.CAUGHT_MINOTAUR;
-                                
-                            # If the player hits a wall
-                            elif next_s[0] == current_s[0] and a != self.STAY:
-                                reward_sum += probability * self.IMPOSSIBLE_REWARD;
-                                
-                            # If the player reaches the exit
-                            elif self.maze[next_s[0]] == 2:
-                                reward_sum += probability * self.GOAL_REWARD;
-                                
-                            # If the player takes a step to an empty cell that is not the exit
-                            else:
-                                reward_sum += probability * self.STEP_REWARD;
+                        # If the player reaches the exit
+                        elif self.maze[next_s[0]] == 2:
+                            reward_sum += probability * self.GOAL_REWARD;
                             
-                    # Set the reward for this state and action
-                    rewards[s,a] = reward_sum;
+                        # If the player takes a step to an empty cell that is not the exit
+                        else:
+                            reward_sum += probability * self.STEP_REWARD;
+                        
+                # Set the reward for this state and action
+                rewards[s,a] = reward_sum;
         return rewards;
     
     def simulate(self, start_position, minature_pos, policy, method):
@@ -369,21 +377,41 @@ def dynamic_programming(env, horizon):
 
     # Initialization
     Q            = np.copy(r);
-    V[:, T]      = np.max(Q,1);
-    policy[:, T] = np.argmax(Q,1);
-
+    V[:, T]      = np.max(Q, 1);
+    policy[:, T] = np.argmax(Q, 1);
+    
+    dimension = (maze.shape[0], maze.shape[1]);
+    df = pd.DataFrame(np.zeros(dimension));
+    min_pos = (0, 2);
+    
+    # print("T : ", T)
+    # for s in range(n_states):
+    #     # Get the position of the player and the minotaur
+    #     pos = env.states[s];
+        
+    #     # Get the state where it it has the minautar position
+    #     if pos[1] == min_pos:
+    #         # add it to the dataframe
+    #         df[pos[0][0]][pos[0][1]] = V[s, T];
+            
+    # print(df);
+        
     # The dynamic programming bakwards recursion
-    for t in range(T-1,-1,-1):
+    for t in range(T - 1, -1 ,-1):
         # Update the value function acccording to the bellman equation
         for s in range(n_states):
             for a in range(n_actions):
                 # Update of the temporary Q values
-                Q[s, a] = r[s, a] + np.dot(p[:, s, a],V[:, t+1])
+                Q[s, a] = r[s, a] + np.dot(p[:, s, a],V[:, t + 1])
         # Update by taking the maximum Q value w.r.t the action a
         V[:, t] = np.max(Q, 1);
+                
+        # Create a dataframe of size width x height to fill in
+        dimension = (maze.shape[0], maze.shape[1]);
+        df = pd.DataFrame(np.zeros(dimension));
+        
         # The optimal action is the one that maximizes the Q function
         policy[:, t] = np.argmax(Q, 1);
-        print(policy[:, t])
     return V, policy;
 
 def draw_maze(maze):
@@ -417,6 +445,7 @@ def draw_maze(maze):
                             cellLoc='center',
                             loc=(0,0),
                             edges='closed');
+    
     # Modify the hight and width of the cells in the table
     tc = grid.properties()['children']
     for cell in tc:
@@ -468,34 +497,23 @@ def animate_solution(maze, path, min_pos):
         grid.get_celld()[(path[i][0])].set_facecolor(LIGHT_ORANGE)
         grid.get_celld()[(path[i][0])].get_text().set_text('Player')
         if i > 0:
-            if path[i][0] == path[i-1]:
-                grid.get_celld()[(path[i][0])].set_facecolor(LIGHT_GREEN)
-                grid.get_celld()[(path[i][0])].get_text().set_text('Player is out')
-            else:
-                grid.get_celld()[(path[i-1][0])].set_facecolor(col_map[maze[path[i-1][0]]])
-                grid.get_celld()[(path[i-1][0])].get_text().set_text('')
+            grid.get_celld()[(path[i-1][0])].set_facecolor(col_map[maze[path[i-1][0]]])
+            grid.get_celld()[(path[i-1][0])].get_text().set_text('')
         display.display(fig)
         display.clear_output(wait=True)
         time.sleep(1)
 
 
-# maze = np.array([
-#     [0, 0, 1, 0, 0, 0, 0],
-#     [0, 0, 1, 0, 0, 0, 0],
-#     [0, 0, 1, 0, 0, 0, 0],
-#     [0, 0, 0, 0, 0, 0, 0],
-#     [1, 1, 1, 1, 1, 1, 0],
-#     [0, 0, 0, 0, 0, 2, 0]
-# ])
+maze = np.array([
+    [0, 0, 0],
+    [0, 1, 0],
+    [0, 0, 2]
+])
 
-# env = Maze(maze)
-# draw_maze(maze);
-# # Finite horizon
-# horizon = 10
-# # Solve the MDP problem with dynamic programming 
-# V, policy=  dynamic_programming(env,horizon);
+env = Maze(maze)
 
-# # # Simulate the shortest path starting from position A
-# # method = 'DynProg';
-# # start  = (0,0);
-# # path = env.simulate(start, policy, method); 
+dynamic_programming(env, 10)
+
+# # Try to simulate a move
+# print(env.states[Maze._Maze__move(env, env.map[((0, 0), (1, 1))], env.MOVE_RIGHT, env.MOVE_RIGHT_MINOTAUR)])
+ 

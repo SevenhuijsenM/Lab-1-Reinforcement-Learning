@@ -262,8 +262,8 @@ class Maze:
             raise NameError(error)
 
         # Create a starting state
-        start = (self.start, self.start_minautar)
-
+        start = ((self.start[0], self.start[1]), (self.start_minautar[0], self.start_minautar[1]))
+        
         path = list()
         if method == 'DynProg':
             # Deduce the horizon from the policy shape
@@ -407,7 +407,6 @@ def draw_maze(maze):
         cell.set_height(1.0/rows)
         cell.set_width(1.0/cols)
 
-
 def animate_solution(maze, path):
     """ Animates the shortest path found by the dynamic programming algorithm
         :param list path: The path to animate
@@ -444,6 +443,9 @@ def animate_solution(maze, path):
         cell.set_height(1.0 / rows)
         cell.set_width(1.0 / cols)
 
+    # Create an empty function
+    prev_cell = None
+
     # Update the color at each frame
     for coordinate in path:
         # Set the cell of the player with the color
@@ -452,13 +454,15 @@ def animate_solution(maze, path):
 
         if prev_cell is not None:
             if coordinate[0] == prev_cell:
+                print("Same cell")
                 grid.get_celld()[(coordinate[0])].set_facecolor(LIGHT_GREEN)
                 grid.get_celld()[(coordinate[0])].get_text().set_text('Player is out')
             else:
+                print("Different cell")
                 grid.get_celld()[(prev_cell)].set_facecolor(col_map[maze[prev_cell]])
                 grid.get_celld()[(prev_cell)].get_text().set_text('')
 
-            prev_cell = coordinate[0]
+        prev_cell = coordinate[0]
         display.display(fig)
         display.clear_output(wait=True)
         time.sleep(1)

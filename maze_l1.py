@@ -314,6 +314,7 @@ class Maze:
                     prob_vector = self.transition_probabilities[:, s, int(policy[s, t])]
                     next_s = np.random.choice(self.n_states, p=prob_vector)
                     path.append(self.states[next_s])
+
                     # Update time and state for next iteration
                     t += 1
                     s = next_s
@@ -544,24 +545,22 @@ def animate_solution(maze, path):
         grid.get_celld()[coordinate[0]].set_facecolor(LIGHT_ORANGE)
         grid.get_celld()[coordinate[0]].get_text().set_text('Player')
 
-        # Set the cell of the minotaur with the color
-        grid.get_celld()[coordinate[1]].set_facecolor(LIGHT_RED)
-        grid.get_celld()[coordinate[1]].get_text().set_text('Minotaur')
+        if prev_cell is not None and coordinate[0] != prev_cell:
+            # Set the cell of the minotaur with the color
+            grid.get_celld()[coordinate[1]].set_facecolor(LIGHT_RED)
+            grid.get_celld()[coordinate[1]].get_text().set_text('Minotaur')
 
         if prev_cell is not None:
             # Set the cell of the player with the color
             if coordinate[0] == prev_cell[0]:
                 grid.get_celld()[(coordinate[0])].set_facecolor(LIGHT_GREEN)
                 grid.get_celld()[(coordinate[0])].get_text().set_text('Player is out')
-            else:
+            elif coordinate[1] != prev_cell[0]:
                 grid.get_celld()[(prev_cell[0])].set_facecolor(col_map[maze[prev_cell[0]]])
                 grid.get_celld()[(prev_cell[0])].get_text().set_text('')
+            elif coordinate[0] != prev_cell[1]:
                 grid.get_celld()[(prev_cell[1])].set_facecolor(col_map[maze[prev_cell[1]]])
                 grid.get_celld()[(prev_cell[1])].get_text().set_text('')
-
-
-            # Set the previous cell of the minotaur with the color
-            grid.get_celld()[(prev_cell[1])].set_facecolor(col_map[maze[prev_cell[1]]])
 
         prev_cell = coordinate
         display.display(fig)

@@ -545,22 +545,27 @@ def animate_solution(maze, path):
         grid.get_celld()[coordinate[0]].set_facecolor(LIGHT_ORANGE)
         grid.get_celld()[coordinate[0]].get_text().set_text('Player')
 
-        if prev_cell is not None and coordinate[0] != prev_cell:
-            # Set the cell of the minotaur with the color
+        # Move the minotaur if the player is not out
+        if prev_cell is  None or coordinate[0] != prev_cell[0]:
             grid.get_celld()[coordinate[1]].set_facecolor(LIGHT_RED)
             grid.get_celld()[coordinate[1]].get_text().set_text('Minotaur')
+        
 
         if prev_cell is not None:
             # Set the cell of the player with the color
             if coordinate[0] == prev_cell[0]:
                 grid.get_celld()[(coordinate[0])].set_facecolor(LIGHT_GREEN)
                 grid.get_celld()[(coordinate[0])].get_text().set_text('Player is out')
-            elif coordinate[1] != prev_cell[0]:
+                
+            # Set the cell of the minotaur with the color
+            elif coordinate[1] != prev_cell[0] :
                 grid.get_celld()[(prev_cell[0])].set_facecolor(col_map[maze[prev_cell[0]]])
                 grid.get_celld()[(prev_cell[0])].get_text().set_text('')
-            elif coordinate[0] != prev_cell[1]:
+                
+            if coordinate[0] != prev_cell[1] and coordinate[0] != prev_cell[0]:
                 grid.get_celld()[(prev_cell[1])].set_facecolor(col_map[maze[prev_cell[1]]])
                 grid.get_celld()[(prev_cell[1])].get_text().set_text('')
+                
 
         prev_cell = coordinate
         display.display(fig)

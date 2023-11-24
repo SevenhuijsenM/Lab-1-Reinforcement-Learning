@@ -251,7 +251,7 @@ class Maze:
                 rewards[s,a] = reward_sum
         return rewards
 
-    def simulate_solo(self, policy, method):
+    def simulate_solo(self, policy, method, start_position_minotaur):
         """ Simulates the shortest path problem given a policy
             :param numpy.ndarray policy: The policy to follow
             :param str method: The method to use to solve the maze
@@ -263,8 +263,8 @@ class Maze:
             raise NameError(error)
 
         # Create a starting state
-        start = ((self.start[0], self.start[1]), (self.start_minautar[0], self.start_minautar[1]))
-        
+        start = ((self.start[0], self.start[1]), start_position_minotaur)
+                
         path = list()
         if method == 'DynProg':
             # Deduce the horizon from the policy shape
@@ -442,64 +442,6 @@ def draw_maze(maze):
         cell.set_height(1.0/rows)
         cell.set_width(1.0/cols)
 
-def animate_solution_solo(maze, path):
-    """ Animates the shortest path found by the dynamic programming algorithm
-        :param list path: The path to animate
-        :param numpy.ndarray maze: The maze environment
-    """
-    # Map a color to each cell in the maze
-    col_map = {0: WHITE, 1: BLACK, 2: LIGHT_PURPLE, 3: LIGHT_GREEN, 4: LIGHT_RED}
-
-    # Size of the maze
-    rows, cols = maze.shape
-
-    # Remove the axis ticks and add title title
-    ax = plt.gca()
-    ax.set_title('Policy simulation')
-    ax.set_xticks([])
-    ax.set_yticks([])
-
-    # Give a color to each cell
-    colored_maze = [[col_map[maze[j,i]] for i in range(cols)] for j in range(rows)]
-
-    # Create figure of the size of the maze
-    fig = plt.figure(1, figsize=(cols,rows))
-
-    # Create a table to color
-    grid = plt.table(cellText=None,
-                     cellColours=colored_maze,
-                     cellLoc='center',
-                     loc=(0,0),
-                     edges='closed')
-
-    # Modify the hight and width of the cells in the table
-    tc = grid.properties()['children']
-    for cell in tc:
-        cell.set_height(1.0 / rows)
-        cell.set_width(1.0 / cols)
-
-    # Create an empty function
-    prev_cell = None
-
-    # Update the color at each frame
-    for coordinate in path:
-        # Set the cell of the player with the color
-        grid.get_celld()[coordinate[0]].set_facecolor(LIGHT_ORANGE)
-        grid.get_celld()[coordinate[0]].get_text().set_text('Player')
-
-        if prev_cell is not None:
-            if coordinate[0] == prev_cell:
-                grid.get_celld()[(coordinate[0])].set_facecolor(LIGHT_GREEN)
-                grid.get_celld()[(coordinate[0])].get_text().set_text('Player is out')
-            else:
-                grid.get_celld()[(prev_cell)].set_facecolor(col_map[maze[prev_cell]])
-                grid.get_celld()[(prev_cell)].get_text().set_text('')
-
-        prev_cell = coordinate[0]
-        display.display(fig)
-        display.clear_output(wait=True)
-        time.sleep(1)
-
 def animate_solution(maze, path):
     """ Animates the shortest path found by the dynamic programming algorithm
         :param list path: The path to animate
@@ -552,20 +494,21 @@ def animate_solution(maze, path):
         
 
         if prev_cell is not None:
-            # Set the cell of the player with the color
-            if coordinate[0] == prev_cell[0]:
+            # If the player does not move and it is at the exit then the player is out
+            if coordinate[0] == prev_cell[0] and maze[coordinate[0]] == 2:
                 grid.get_celld()[(coordinate[0])].set_facecolor(LIGHT_GREEN)
                 grid.get_celld()[(coordinate[0])].get_text().set_text('Player is out')
-                
-            # Set the cell of the minotaur with the color
-            elif coordinate[1] != prev_cell[0] :
+
+            # Set the old cell with the previous color of the player
+            elif coordinate[1] != prev_cell[0] and coordinate[0] != prev_cell[0] :
                 grid.get_celld()[(prev_cell[0])].set_facecolor(col_map[maze[prev_cell[0]]])
                 grid.get_celld()[(prev_cell[0])].get_text().set_text('')
-                
-            if coordinate[0] != prev_cell[1] and coordinate[0] != prev_cell[0]:
+
+            # Set the old cell with the previous color of the minotaur
+            if coordinate[0] != prev_cell[1] and coordinate[0] != prev_cell[0] and coordinate[1] != prev_cell[1]:
                 grid.get_celld()[(prev_cell[1])].set_facecolor(col_map[maze[prev_cell[1]]])
                 grid.get_celld()[(prev_cell[1])].get_text().set_text('')
-                
+
 
         prev_cell = coordinate
         display.display(fig)

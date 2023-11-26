@@ -29,10 +29,11 @@ class Maze:
     MOVE_DOWN  = 4
 
     # Actions of the minotaur
-    MOVE_LEFT_MINOTAUR  = 0
-    MOVE_RIGHT_MINOTAUR = 1
-    MOVE_UP_MINOTAUR    = 2
-    MOVE_DOWN_MINOTAUR  = 3
+    MOVE_MINOTAUR_STAY  = 0
+    MOVE_LEFT_MINOTAUR  = 1
+    MOVE_RIGHT_MINOTAUR = 2
+    MOVE_UP_MINOTAUR    = 3
+    MOVE_DOWN_MINOTAUR  = 4
 
     # Give names to actions of the player
     actions_names = {
@@ -45,6 +46,7 @@ class Maze:
 
     # Give names to actions of the minotaur
     actions_names_minotaur = {
+        MOVE_MINOTAUR_STAY: "stay",
         MOVE_LEFT_MINOTAUR: "move left",
         MOVE_RIGHT_MINOTAUR: "move right",
         MOVE_UP_MINOTAUR: "move up",
@@ -80,6 +82,7 @@ class Maze:
         actions_player[self.MOVE_DOWN]  = (1, 0)
 
         actions_minotaur = dict()
+        actions_minotaur[self.MOVE_MINOTAUR_STAY]  = (0, 0)
         actions_minotaur[self.MOVE_LEFT_MINOTAUR]  = (0, -1)
         actions_minotaur[self.MOVE_RIGHT_MINOTAUR] = (0, 1)
         actions_minotaur[self.MOVE_UP_MINOTAUR]    = (-1, 0)
@@ -114,7 +117,8 @@ class Maze:
                 self.maze_layout.shape[1] > 1
 
         # Look at the coordinates of the minotaur, it cannot move into the boundaries
-        possibilities = np.array([  self.MOVE_LEFT_MINOTAUR,    \
+        possibilities = np.array([  self.MOVE_MINOTAUR_STAY,    \
+                                    self.MOVE_LEFT_MINOTAUR,    \
                                     self.MOVE_RIGHT_MINOTAUR,   \
                                     self.MOVE_UP_MINOTAUR,      \
                                     self.MOVE_DOWN_MINOTAUR]    )
@@ -435,6 +439,8 @@ class Maze:
                 #         print(self.states[s_[0]])
                 #         print(self.transition_probabilities[s_[0], s, int(policy[s, t])])
                 #         print(P[s_[0], t + 1])
+
+
 
                  # Calculate the probability of exiting
                  # If the player is at the same position as the minotaur the probability is 0

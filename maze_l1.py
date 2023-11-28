@@ -33,10 +33,11 @@ class Maze:
     MOVE_RIGHT_MINOTAUR = 1
     MOVE_UP_MINOTAUR    = 2
     MOVE_DOWN_MINOTAUR  = 3
+    STAY_MINOTAUR  = 4
 
     # Give names to actions of the player
     actions_names = {
-        STAY: "stay",
+        STAY: "s",
         MOVE_LEFT: "<",
         MOVE_RIGHT: ">",
         MOVE_UP: "^",
@@ -45,6 +46,7 @@ class Maze:
 
     # Give names to actions of the minotaur
     actions_names_minotaur = {
+
         MOVE_LEFT_MINOTAUR: "move left",
         MOVE_RIGHT_MINOTAUR: "move right",
         MOVE_UP_MINOTAUR: "move up",
@@ -58,9 +60,9 @@ class Maze:
     CAUGHT_MINOTAUR = -1000
 
     # Initialise the maze environment
-    def __init__(self, maze, minotaur_position = None):
+    def __init__(self, maze, minotaur_position = None, minotaur_stay_enabled = False):
         self.maze_layout                            = maze
-        self.actions_player, self.actions_minotaur  = self.__actions()
+        self.actions_player, self.actions_minotaur  = self.__actions(minotaur_stay_enabled)
         self.states, self.map                       = self.__states()
         self.n_actions                              = len(self.actions_player)
         self.n_states                               = len(self.states)
@@ -71,7 +73,7 @@ class Maze:
         self.start_minautar, self.start, self.end   = \
                 self.__get_start_positions(minotaur_position)
 
-    def __actions(self):
+    def __actions(self, minotaur_stay_enabled):
         actions_player = dict()
         actions_player[self.STAY]       = (0, 0)
         actions_player[self.MOVE_LEFT]  = (0, -1)
@@ -84,6 +86,8 @@ class Maze:
         actions_minotaur[self.MOVE_RIGHT_MINOTAUR] = (0, 1)
         actions_minotaur[self.MOVE_UP_MINOTAUR]    = (-1, 0)
         actions_minotaur[self.MOVE_DOWN_MINOTAUR]  = (1, 0)
+        if minotaur_stay_enabled:
+            actions_minotaur[self.STAY_MINOTAUR]       = (0, 0)
         return actions_player, actions_minotaur
 
     def __states(self):
@@ -114,10 +118,8 @@ class Maze:
                 self.maze_layout.shape[1] > 1
 
         # Look at the coordinates of the minotaur, it cannot move into the boundaries
-        possibilities = np.array([  self.MOVE_LEFT_MINOTAUR,    \
-                                    self.MOVE_RIGHT_MINOTAUR,   \
-                                    self.MOVE_UP_MINOTAUR,      \
-                                    self.MOVE_DOWN_MINOTAUR]    )
+        possibilities = np.array(list(self.actions_minotaur.copy().keys()))
+
 
         # Check if the minotaur is at the left or right boundary
         if minotaur_state[1] == 0:
@@ -414,8 +416,11 @@ class Maze:
         # For each timestep the probability of exiting is 1 if the player is at the exit and 0 otherwise
         for t in range(T + 1):
             for s in range(self.n_states):
-                # If the player is at the same position as the minotaur the probability is 0
-                if self.states[s][0] == self.states[s][1]:
+                # If the player is at the exit the probability is 1
+                if self.states[s][0] != self.states[s][1] \
+                    and self.maze_layout[self.states[s][0]] == 2:
+                    P[s, t] = 1
+                else:
                     P[s, t] = 0
 
         # For each T going backwards calculate the probability of exiting.
@@ -424,18 +429,15 @@ class Maze:
             for s in range(self.n_states):
                 # Get the probability of the next state using the action from the policy
                 prob_vector = self.transition_probabilities[:, s, int(policy[s, t])]
-
-                # if self.states[s][1] == (1, 2) and self.states[s][0]==(2, 2):
+                
+                # if self.states[s][0] == (6, 6) and self.states[s][1] == (6, 5):
                 #     print(t)
-                #     print(self.states[s])
-                #     print("---")
-                #     non_zero = prob_vector[prob_vector > 0]
-                #     non_zero = np.argwhere(prob_vector > 0)
-                #     for s_ in non_zero:
+                #     args = np.argwhere(prob_vector > 0)
+                #     print(s)
+                #     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+                #     for s_ in args:
                 #         print(self.states[s_[0]])
-                #         print(self.transition_probabilities[s_[0], s, int(policy[s, t])])
                 #         print(P[s_[0], t + 1])
-
                  # Calculate the probability of exiting
                  # If the player is at the same position as the minotaur the probability is 0
                 if self.states[s][0] == self.states[s][1]:
@@ -451,7 +453,7 @@ class Maze:
             #         if self.maze_layout[i, j] == 1:
             #             row.append("X")
             #         else:
-            #             state = self.map[((i, j), (0, 2))]
+            #             state = self.map[((i, j), (6, 5))]
             #             row.append(P[state, t])
             #     total.append(row)
             # print(t)
@@ -462,11 +464,11 @@ class Maze:
 
         # Only at the start at T = 0 the probability is 1
         start = ((self.start[0], self.start[1]), (self.start_minautar[0], self.start_minautar[1]))
-        Z[self.map[start], 0] = 1
+        Z[self.map[start], 1] = 1
 
         # For each T store the probability of exiting starting from the starting state
         prob_exit = np.zeros(T)
-        for t in range(0, T):
+        for t in range(1, T+1):
             for s in range(self.n_states):
                 # We prune by only looking at states with a positive probability
                 if Z[s, t] == 0:
@@ -482,16 +484,17 @@ class Maze:
                 for s_prime in next_states:
                     # Calculate the probability of being in sprime
                     prob = self.transition_probabilities[s_prime, s, int(a)]
-
-                    # Calculate the probability of exiting
-                    Z[s_prime, t + 1] += prob * Z[s, t]
+                    
+                    # Check if it is still possible to have t + 1
+                    if t + 1 <= T:
+                        # Calculate the probability of exiting
+                        Z[s_prime, t + 1] += prob * Z[s, t]
             
             # Calculate the probability of exiting by summing over all states
-            prob_exit[t] = np.dot(P[:, t], Z[:, t])
+            prob_exit[t-1] = np.dot(P[:, t], Z[:, t])
 
         return prob_exit
-    
-    
+
 def dynamic_programming(env, horizon):
 
     """ Solves the shortest path problem using dynamic programming

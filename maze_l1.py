@@ -548,6 +548,52 @@ class Maze:
             prob_exit[t - 1] = np.dot(P[:, t], Z[:, t])
 
         return prob_exit
+    
+    def dynamic_programming_probability_exiting2(self, horizon, policy):
+        """
+        Calculates the probability of exiting the maze using dynamic programming.
+
+        :param int horizon: The time horizon.
+        :param policy: The policy to follow.
+        :return: Array of probabilities of exiting from each state at each time step.
+        """
+        T = horizon
+        P_exit = np.zeros((self.n_states, T + 1))
+
+        # Initialize exit probabilities for T = horizon
+        for s in range(self.n_states):
+            player_pos, minotaur_pos = self.states[s]
+            if player_pos != minotaur_pos and self.maze_layout[player_pos] == 2:
+                P_exit[s, T] = 1  # Exit probability is 1 if at the exit and not caught
+
+        # Dynamic programming to calculate exit probabilities for each time step
+        for t in range(T - 1, -1, -1):
+            for s in range(self.n_states):
+                if self.states[s][0] != self.states[s][1]:  # Check if not caught by Minotaur
+                    action = int(policy[s, t])
+                    prob_vector = self.transition_probabilities[:, s, action]
+                    P_exit[s, t] = np.dot(prob_vector, P_exit[:, t + 1])
+                # If caught, exit probability remains 0
+
+        # Calculate probability of being in each state starting from the initial state
+        P_state = np.zeros((self.n_states, T + 1))
+        start_state = self.map[((self.start[0], self.start[1]), (self.start_minautar[0], self.start_minautar[1]))]
+        P_state[start_state, 0] = 1  # Probability of starting in the start state is 1
+
+        # Propagate the probabilities through the states
+        for t in range(T):
+            for s in range(self.n_states):
+                if P_state[s, t] > 0:  # Only consider states with non-zero probability
+                    action = int(policy[s, t])
+                    next_states = np.argwhere(self.transition_probabilities[:, s, action] > 0).flatten()
+                    for s_prime in next_states:
+                        prob = self.transition_probabilities[s_prime, s, action]
+                        P_state[s_prime, t + 1] += prob * P_state[s, t]
+
+        # Calculate the probability of exiting by summing over all states at each time step
+        prob_exit = np.sum(P_exit * P_state, axis=0)
+
+        return prob_exit
 
 def dynamic_programming(env, horizon):
 

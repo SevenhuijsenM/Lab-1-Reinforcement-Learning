@@ -372,7 +372,7 @@ class Maze:
                     s = next_s
                     # Move to next state given the policy and the current state
                     if is_life_ended():
-                        break #Kill player
+                        break # Kill player
                     else:
                         next_s = self.__move(s, policy[s])
                         print(next_s)

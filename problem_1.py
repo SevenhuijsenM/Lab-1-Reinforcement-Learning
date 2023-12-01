@@ -1,3 +1,7 @@
+# Created by
+# Merlijn Sevenhuijsen  | merlijns@kth.se   | 200104073275
+# Hugo Westergård       | hugwes@kth.se     | 200011289659
+
 import time
 import matplotlib.pyplot as plt
 import numpy as np
@@ -72,7 +76,7 @@ class Maze:
         self.min_probabilities                      = self.__minotaur_transition()
         self.transition_probabilities               = self.__transitions()
         self.rewards                                = self.__rewards()
-        self.start_minautar, self.start, self.end   = \
+        self.start_minotaur, self.start, self.end   = \
                 self.__get_start_positions(minotaur_position)
 
     def __actions(self, minotaur_stay_enabled):
@@ -331,7 +335,7 @@ class Maze:
                 raise NameError(error)
 
             # Create a starting state
-            start = ((self.start[0], self.start[1]), (self.start_minautar[0], self.start_minautar[1]))
+            start = ((self.start[0], self.start[1]), (self.start_minotaur[0], self.start_minotaur[1]))
             
             path = list()
             if method == 'DynProg':
@@ -437,26 +441,72 @@ class Maze:
             :param numpy.ndarray policy: The policy to follow
             :param tuple minotaur_location: The location of the minotaur
         """
+        col_map = {0: WHITE, 1: BLACK, 2: LIGHT_PURPLE, 3: LIGHT_GREEN, 4: LIGHT_RED}
 
-        # For each location in the maze we draw an arrow in which direction the player would go according to the policy
-        # We use this in a dataframe
-        policy_arrows = []
+        # Draw the maze
+        ax = plt.gca()
+        ax.set_title('The Maze Policy with fixed minotaur location')
+        ax.set_xticks([])
+        ax.set_yticks([])
+        rows, cols = self.maze_layout.shape
+
+        # Give a color to each cell
+        colored_maze = [[col_map[self.maze_layout[j, i]] for i in range(cols)] for j in range(rows)]
+
+        # Create a table to color
+        grid = plt.table(cellText=None,
+                            cellColours=colored_maze,
+                            cellLoc='center',
+                            loc=(0, 0),
+                            edges='closed')
+        
+        # Modify the hight and width of the cells in the table
+        tc = grid.properties()['children']
+        for cell in tc:
+            cell.set_height(1.0 / rows)
+            cell.set_width(1.0 / cols)
+
+        # For each cell print the policy
         for i in range(self.maze_layout.shape[0]):
-            row = []
             for j in range(self.maze_layout.shape[1]):
                 if self.maze_layout[i, j] == 1:
-                    row.append("X")
+                    grid.get_celld()[(i, j)].set_facecolor(BLACK)
+                elif (i, j) == minotaur_location:
+                    grid.get_celld()[(i, j)].set_facecolor(LIGHT_RED)
                 else:
                     # Get the state corresponding to the location
                     state = self.map[((i, j), minotaur_location)]
                     # Get the action according to the policy
                     action = policy[state, 0]
-                    # Add the arrow to the row
-                    row.append(self.actions_names[action])
-            policy_arrows.append(row)
 
-        # Print the maze with the policy
-        print(pd.DataFrame(policy_arrows))
+                    # If the action is stay then make it a *
+                    if action == self.STAY:
+                        grid.get_celld()[(i, j)].get_text().set_text("*")
+                    else:
+                        # Add the arrow to the row
+                        grid.get_celld()[(i, j)].get_text().set_text(self.actions_names[action])
+                        
+        # Add a label for the x and y axis
+        plt.xlabel("Column")
+        plt.ylabel("Row")
+
+        # Add a legend
+        legend_elements = [
+            plt.Line2D([0], [0], marker='s', color='w', label='Empty Cell', markerfacecolor=col_map[0], markersize=10),
+            plt.Line2D([0], [0], marker='s', color='w', label='Blocked Cell', markerfacecolor=col_map[1], markersize=10),
+            plt.Line2D([0], [0], marker='s', color='w', label='Exit', markerfacecolor=col_map[2], markersize=10),
+            plt.Line2D([0], [0], marker='s', color='w', label='Start', markerfacecolor=col_map[3], markersize=10),
+            plt.Line2D([0], [0], marker='s', color='w', label='Minotaur', markerfacecolor=col_map[4], markersize=10),
+            plt.Line2D([0], [0], marker='>', color='w', label='Move Right', markerfacecolor='k', markersize=10),
+            plt.Line2D([0], [0], marker='<', color='w', label='Move Left', markerfacecolor='k', markersize=10),
+            plt.Line2D([0], [0], marker='^', color='w', label='Move Up', markerfacecolor='k', markersize=10),
+            plt.Line2D([0], [0], marker='v', color='w', label='Move Down', markerfacecolor='k', markersize=10),
+            plt.Line2D([0], [0], marker='*', color='w', label='Stay', markerfacecolor='k', markersize=10),
+        ]
+
+        # Add legend to the plot
+        ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1, 1))
+
 
     def dynamic_programming_probability_exiting(self, horizon, policy):
         """ Solves the shortest path problem using dynamic programming
@@ -471,7 +521,7 @@ class Maze:
         T = horizon
 
         # The probability at T is 1 if the player is at the exit and 0 otherwise
-        P = np.ones((self.n_states, T + 1))
+        P = np.zeros((self.n_states, T + 1))
 
         # For each timestep the probability of exiting is 1 if the player is at the exit and 0 otherwise
         for t in range(T + 1):
@@ -480,8 +530,6 @@ class Maze:
                 if self.states[s][0] != self.states[s][1] \
                     and self.maze_layout[self.states[s][0]] == 2:
                     P[s, t] = 1
-                else:
-                    P[s, t] = 0
 
         # For each T going backwards calculate the probability of exiting.
         for t in range(T-1, -1 ,-1):
@@ -489,41 +537,14 @@ class Maze:
             for s in range(self.n_states):
                 # Get the probability of the next state using the action from the policy
                 prob_vector = self.transition_probabilities[:, s, int(policy[s, t])]
-                
-                # if self.states[s][0] == (6, 6) and self.states[s][1] == (6, 5):
-                #     print(t)
-                #     args = np.argwhere(prob_vector > 0)
-                #     print(s)
-                #     print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-                #     for s_ in args:
-                #         print(self.states[s_[0]])
-                #         print(P[s_[0], t + 1])
-                 # Calculate the probability of exiting
-                 # If the player is at the same position as the minotaur the probability is 0
-                if self.states[s][0] == self.states[s][1]:
-                    P[s, t] = 0
-                else:
+                if self.states[s][0] != self.states[s][1] and self.maze_layout[self.states[s][0]] != 2:  # Check if not caught by Minotaur and not the exit
                     P[s, t] = np.dot(prob_vector, P[:, t + 1])
-            
-            # # Print the maze with the policy given that the minotaur is at the topr ight
-            # total = []
-            # for i in range(self.maze_layout.shape[0]):
-            #     row = []
-            #     for j in range(self.maze_layout.shape[1]):
-            #         if self.maze_layout[i, j] == 1:
-            #             row.append("X")
-            #         else:
-            #             state = self.map[((i, j), (6, 5))]
-            #             row.append(P[state, t])
-            #     total.append(row)
-            # print(t)
-            # print(pd.DataFrame(total))
 
         # Probability in state
         Z = np.zeros((self.n_states, T + 1))
 
         # Only at the start at T = 0 the probability is 1
-        start = ((self.start[0], self.start[1]), (self.start_minautar[0], self.start_minautar[1]))
+        start = ((self.start[0], self.start[1]), (self.start_minotaur[0], self.start_minotaur[1]))
         Z[self.map[start], 1] = 1
 
         # For each T store the probability of exiting starting from the starting state
@@ -563,89 +584,30 @@ class Maze:
         :param policy: The policy to follow.
         :return: Array of probabilities of exiting from each state at each time step.
         """
-        T = horizon
+        T = horizon 
         P_exit = np.zeros((self.n_states, T + 1))
 
         # Initialize exit probabilities for T = horizon
-        for s in range(self.n_states):
-            player_pos, minotaur_pos = self.states[s]
-            if player_pos != minotaur_pos and self.maze_layout[player_pos] == 2:
-                P_exit[s, T] = 1  # Exit probability is 1 if at the exit and not caught
+        for t in range(T + 1):
+            for s in range(self.n_states):
+                player_pos, minotaur_pos = self.states[s]
+                if player_pos != minotaur_pos and self.maze_layout[player_pos] == 2:
+                    P_exit[s, t] = 1  # Exit probability is 1 if at the exit and not caught
 
         # Dynamic programming to calculate exit probabilities for each time step
         for t in range(T - 1, -1, -1):
             for s in range(self.n_states):
-                if self.states[s][0] != self.states[s][1]:  # Check if not caught by Minotaur
+                # print(self.states[s])
+                if self.states[s][0] != self.states[s][1] and self.maze_layout[self.states[s][0]] != 2:  # Check if not caught by Minotaur and not the exit
                     action = int(policy[s, t])
                     prob_vector = self.transition_probabilities[:, s, action]
                     P_exit[s, t] = np.dot(prob_vector, P_exit[:, t + 1])
-                # If caught, exit probability remains 0
 
         # Calculate probability of being in each state starting from the initial state
-        P_state = np.zeros((self.n_states, T + 1))
-        start_state = self.map[((self.start[0], self.start[1]), (self.start_minautar[0], self.start_minautar[1]))]
-        P_state[start_state, 0] = 1  # Probability of starting in the start state is 1
-
-        # Propagate the probabilities through the states
-        for t in range(T):
-            for s in range(self.n_states):
-                if P_state[s, t] > 0:  # Only consider states with non-zero probability
-                    action = int(policy[s, t])
-                    next_states = np.argwhere(self.transition_probabilities[:, s, action] > 0).flatten()
-                    for s_prime in next_states:
-                        prob = self.transition_probabilities[s_prime, s, action]
-                        P_state[s_prime, t + 1] += prob * P_state[s, t]
+        initial_state = ((self.start[0], self.start[1]), (self.start_minotaur[0], self.start_minotaur[1]))
 
         # Calculate the probability of exiting by summing over all states at each time step
-        prob_exit = np.sum(P_exit * P_state, axis=0)
-
-        return prob_exit
-
-    def dynamic_programming_probability_exiting2(self, horizon, policy):
-        """
-        Calculates the probability of exiting the maze using dynamic programming.
-
-        :param int horizon: The time horizon.
-        :param policy: The policy to follow.
-        :return: Array of probabilities of exiting from each state at each time step.
-        """
-        T = horizon
-        P_exit = np.zeros((self.n_states, T + 1))
-
-        # Initialize exit probabilities for T = horizon
-        for s in range(self.n_states):
-            player_pos, minotaur_pos = self.states[s]
-            if player_pos != minotaur_pos and self.maze_layout[player_pos] == 2:
-                P_exit[s, T] = 1  # Exit probability is 1 if at the exit and not caught
-
-        # Dynamic programming to calculate exit probabilities for each time step
-        for t in range(T - 1, -1, -1):
-            for s in range(self.n_states):
-                if self.states[s][0] != self.states[s][1]:  # Check if not caught by Minotaur
-                    action = int(policy[s, t])
-                    prob_vector = self.transition_probabilities[:, s, action]
-                    P_exit[s, t] = np.dot(prob_vector, P_exit[:, t + 1])
-                # If caught, exit probability remains 0
-
-        # Calculate probability of being in each state starting from the initial state
-        P_state = np.zeros((self.n_states, T + 1))
-        start_state = self.map[((self.start[0], self.start[1]), (self.start_minautar[0], self.start_minautar[1]))]
-        P_state[start_state, 0] = 1  # Probability of starting in the start state is 1
-
-        # Propagate the probabilities through the states
-        for t in range(T):
-            for s in range(self.n_states):
-                if P_state[s, t] > 0:  # Only consider states with non-zero probability
-                    action = int(policy[s, t])
-                    next_states = np.argwhere(self.transition_probabilities[:, s, action] > 0).flatten()
-                    for s_prime in next_states:
-                        prob = self.transition_probabilities[s_prime, s, action]
-                        P_state[s_prime, t + 1] += prob * P_state[s, t]
-
-        # Calculate the probability of exiting by summing over all states at each time step
-        prob_exit = np.sum(P_exit * P_state, axis=0)
-
-        return prob_exit
+        return P_exit[self.map[initial_state], 0]
 
 def dynamic_programming(env, horizon):
 
@@ -929,7 +891,6 @@ def animate_solution(maze, path):
             if coordinate[0] != prev_cell[1] and coordinate[1] != prev_cell[1]:
                 grid.get_celld()[(prev_cell[1])].set_facecolor(col_map[maze[prev_cell[1]]])
                 grid.get_celld()[(prev_cell[1])].get_text().set_text('')
-
 
         prev_cell = coordinate
         display.display(fig)

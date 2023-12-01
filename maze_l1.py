@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from IPython import display
+import random
 
 # All the methods that are currently implemented in the class Maze
 methods = ['DynProg', 'ValIter']
@@ -58,6 +59,7 @@ class Maze:
     GOAL_REWARD = 0
     IMPOSSIBLE_REWARD = -1000
     CAUGHT_MINOTAUR = -1000
+    DEATH = -1000
 
     # Initialise the maze environment
     def __init__(self, maze, minotaur_position = None, minotaur_stay_enabled = False):
@@ -369,7 +371,11 @@ class Maze:
                     # Update state
                     s = next_s
                     # Move to next state given the policy and the current state
-                    next_s = self.__move(s, policy[s])
+                    if is_life_ended():
+                        break #Kill player
+                    else:
+                        next_s = self.__move(s, policy[s])
+                        print(next_s)
                     # Add the position in the maze corresponding to the next state
                     # to the path
                     path.append(self.states[next_s])
@@ -646,7 +652,7 @@ def dynamic_programming(env, horizon):
     """ Solves the shortest path problem using dynamic programming
         :param Maze env: The environment to solve
         :param int horizon: The time horizon
-        :return numpy.ndarray V: The optimal state value function
+        :return numpy.ndarray V: The optimal state  function
         :return numpy.ndarray policy: The optimal policy
     """
     # The dynamic prgramming requires the knowledge of :
@@ -677,6 +683,7 @@ def dynamic_programming(env, horizon):
             for a in range(n_actions):
                 # Update of the temporary Q values
                 Q[s, a] = r[s, a] + np.dot(p[:, s, a],V[:, t + 1])
+                # Roll dice for death by poision. (1/30)
         # Update by taking the maximum Q value w.r.t the action a
         V[:, t] = np.max(Q, 1)
 
@@ -734,6 +741,82 @@ def value_iteration(env, gamma, epsilon, max_iterations = 200):
         for s in range(n_states):
             for a in range(n_actions):
                 Q[s, a] = r[s, a] + gamma * np.dot(p[:, s, a], V)
+        BV = np.max(Q, 1)
+        # Show error
+        #print(np.linalg.norm(V - BV))
+
+    # Compute policy
+    policy = np.argmax(Q,1)
+
+    # Return the obtained policy
+    return V, policy
+
+def is_life_ended():
+    # Generate a random number between 0 and 1
+    random_number = random.uniform(0, 1)
+
+    # Check if the random number is less than 1/30
+    if random_number < 1/30:
+        return True  # Life ends
+    else:
+        return False  # Life continues 
+
+def value_iteration_health(env, gamma, epsilon, max_iterations = 200):
+    """ Solves the shortest path problem using value iteration
+        :input Maze env           : The maze environment in which we seek to
+                                    find the shortest path.
+        :input float gamma        : The discount factor.
+        :input float epsilon      : accuracy of the value iteration procedure.
+        :return numpy.array V     : Optimal values for every state at every
+                                    time, dimension S*T
+        :return numpy.array policy: Optimal time-varying policy at every state,
+                                    dimension S*T
+    """
+    # The value itearation algorithm requires the knowledge of :
+    # - Transition probabilities
+    # - Rewards
+    # - State space
+    # - Action space
+    # - The finite horizon
+    p         = env.transition_probabilities
+    r         = env.rewards
+    n_states  = env.n_states
+    n_actions = env.n_actions
+
+    # Required variables and temporary ones for the VI to run
+    V   = np.zeros(n_states)
+    Q   = np.zeros((n_states, n_actions))
+    BV  = np.zeros(n_states)
+
+    # Iteration counter
+    n = 0
+
+    # Tolerance error
+    tol = (1 - gamma) * epsilon / gamma
+
+    # Initialization of the VI
+    for s in range(n_states):
+        for a in range(n_actions):
+            if is_life_ended():
+                Q[s, a] = -1000
+            else:
+                Q[s, a] = r[s, a] + gamma * np.dot(p[:, s, a], V)
+    BV = np.max(Q, 1)
+
+    # Iterate until convergence
+    while np.linalg.norm(V - BV) >= tol and n < max_iterations:
+        # Increment by one the numbers of iteration
+        n += 1
+        # Update the value function
+        V = np.copy(BV)
+
+        # Compute the new BV
+        for s in range(n_states):
+            for a in range(n_actions):
+                if is_life_ended():
+                    Q[s, a] = -1000
+                else:
+                    Q[s, a] = r[s, a] + gamma * np.dot(p[:, s, a], V)
         BV = np.max(Q, 1)
         # Show error
         #print(np.linalg.norm(V - BV))

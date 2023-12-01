@@ -74,7 +74,7 @@ class Maze:
         self.min_probabilities                      = self.__minotaur_transition()
         self.transition_probabilities               = self.__transitions()
         self.rewards                                = self.__rewards()
-        self.start_minautar, self.start, self.end   = \
+        self.start_minotaur, self.start, self.end   = \
                 self.__get_start_positions(minotaur_position)
 
     def __actions(self, minotaur_stay_enabled):
@@ -333,7 +333,7 @@ class Maze:
                 raise NameError(error)
 
             # Create a starting state
-            start = ((self.start[0], self.start[1]), (self.start_minautar[0], self.start_minautar[1]))
+            start = ((self.start[0], self.start[1]), (self.start_minotaur[0], self.start_minotaur[1]))
             
             path = list()
             if method == 'DynProg':
@@ -542,7 +542,7 @@ class Maze:
         Z = np.zeros((self.n_states, T + 1))
 
         # Only at the start at T = 0 the probability is 1
-        start = ((self.start[0], self.start[1]), (self.start_minautar[0], self.start_minautar[1]))
+        start = ((self.start[0], self.start[1]), (self.start_minotaur[0], self.start_minotaur[1]))
         Z[self.map[start], 1] = 1
 
         # For each T store the probability of exiting starting from the starting state
@@ -586,40 +586,26 @@ class Maze:
         P_exit = np.zeros((self.n_states, T + 1))
 
         # Initialize exit probabilities for T = horizon
-        for s in range(self.n_states):
-            player_pos, minotaur_pos = self.states[s]
-            if player_pos != minotaur_pos and self.maze_layout[player_pos] == 2:
-                P_exit[s, T] = 1  # Exit probability is 1 if at the exit and not caught
+        for t in range(T + 1):
+            for s in range(self.n_states):
+                player_pos, minotaur_pos = self.states[s]
+                if player_pos != minotaur_pos and self.maze_layout[player_pos] == 2:
+                    P_exit[s, t] = 1  # Exit probability is 1 if at the exit and not caught
 
         # Dynamic programming to calculate exit probabilities for each time step
         for t in range(T - 1, -1, -1):
             for s in range(self.n_states):
-                if self.states[s][0] != self.states[s][1]:  # Check if not caught by Minotaur
+                # print(self.states[s])
+                if self.states[s][0] != self.states[s][1] and self.maze_layout[self.states[s][0]] != 2:  # Check if not caught by Minotaur and not the exit
                     action = int(policy[s, t])
                     prob_vector = self.transition_probabilities[:, s, action]
                     P_exit[s, t] = np.dot(prob_vector, P_exit[:, t + 1])
-                # If caught, exit probability remains 0
 
         # Calculate probability of being in each state starting from the initial state
-        P_state = np.zeros((self.n_states, T + 1))
-        start_state = self.map[((self.start[0], self.start[1]), (self.start_minautar[0], self.start_minautar[1]))]
-        P_state[start_state, 1] = 1  # Probability of starting in the start state is 1
-
-        # Propagate the probabilities through the states
-        for t in range(1, T+1):
-            for s in range(self.n_states):
-                if P_state[s, t] > 0:  # Only consider states with non-zero probability
-                    action = int(policy[s, t])
-                    next_states = np.argwhere(self.transition_probabilities[:, s, action] > 0).flatten()
-                    for s_prime in next_states:
-                        prob = self.transition_probabilities[s_prime, s, action]
-                        if t + 1 <= T:
-                            P_state[s_prime, t + 1] += prob * P_state[s, t]
+        initial_state = ((self.start[0], self.start[1]), (self.start_minotaur[0], self.start_minotaur[1]))
 
         # Calculate the probability of exiting by summing over all states at each time step
-        prob_exit = np.sum(P_exit * P_state, axis=0)
-
-        return prob_exit
+        return P_exit[self.map[initial_state], 0]
 
 def dynamic_programming(env, horizon):
 

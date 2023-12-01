@@ -515,7 +515,7 @@ class Maze:
         T = horizon
 
         # The probability at T is 1 if the player is at the exit and 0 otherwise
-        P = np.ones((self.n_states, T + 1))
+        P = np.zeros((self.n_states, T + 1))
 
         # For each timestep the probability of exiting is 1 if the player is at the exit and 0 otherwise
         for t in range(T + 1):
@@ -524,8 +524,6 @@ class Maze:
                 if self.states[s][0] != self.states[s][1] \
                     and self.maze_layout[self.states[s][0]] == 2:
                     P[s, t] = 1
-                else:
-                    P[s, t] = 0
 
         # For each T going backwards calculate the probability of exiting.
         for t in range(T-1, -1 ,-1):
@@ -533,9 +531,7 @@ class Maze:
             for s in range(self.n_states):
                 # Get the probability of the next state using the action from the policy
                 prob_vector = self.transition_probabilities[:, s, int(policy[s, t])]
-                if self.states[s][0] == self.states[s][1]:
-                    P[s, t] = 0
-                else:
+                if self.states[s][0] != self.states[s][1] and self.maze_layout[self.states[s][0]] != 2:  # Check if not caught by Minotaur and not the exit
                     P[s, t] = np.dot(prob_vector, P[:, t + 1])
 
         # Probability in state
